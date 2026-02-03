@@ -3,32 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuralHealth Analytics | CMS Dashboard</title>
+    <title>NeuralHealth Analytics | OIE Console</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;900&display=swap');
-        body { background-color: #020617; color: #f1f5f9; font-family: 'Inter', sans-serif; }
-        .glass-card { background: rgba(15, 23, 42, 0.95); border: 1px solid #1e293b; border-radius: 12px; }
+        body { background-color: #020617; color: #f1f5f9; font-family: sans-serif; }
+        .glass-card { background: rgba(15, 23, 42, 0.9); border: 1px solid #1e293b; border-radius: 12px; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
     </style>
 </head>
 <body>
-    <div id="app" class="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
+    <div id="app" class="p-6 md:p-10 max-w-5xl mx-auto space-y-6">
         <header class="flex justify-between items-center border-b border-slate-800 pb-6">
-            <div>
-                <h1 class="text-xl font-black italic text-white uppercase tracking-tighter">NeuralHealth <span class="text-sky-500">Analytics</span></h1>
-                <p class="text-[9px] font-mono text-slate-500 uppercase tracking-widest mt-1">Provider Data Catalog // CMS-IF5V-4X48</p>
-            </div>
+            <h1 class="text-xl font-bold tracking-tighter italic text-white uppercase">NeuralHealth <span class="text-sky-500">Analytics</span></h1>
             <div id="status" class="text-[10px] font-mono text-sky-500 uppercase tracking-widest px-3 py-1 bg-slate-900 border border-slate-800 rounded">
-                Connecting...
+                Initialising...
             </div>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="glass-card p-4 h-[500px] flex flex-col">
-                <p class="text-[10px] text-slate-500 font-bold mb-4 uppercase tracking-widest">Select Region</p>
+                <p class="text-[10px] text-slate-500 font-bold mb-4 uppercase tracking-widest">Region Selector</p>
                 <div id="state-list" class="overflow-y-auto custom-scrollbar flex-grow pr-2"></div>
             </div>
 
@@ -36,26 +32,15 @@
                 <div class="glass-card p-8">
                     <div class="flex justify-between items-end mb-8">
                         <div>
-                            <h2 id="current-state" class="text-6xl font-black text-white italic tracking-tighter underline decoration-sky-500 decoration-4">--</h2>
-                            <p class="text-slate-500 text-xs font-bold uppercase mt-2">Regional Efficiency Metrics</p>
+                            <h2 id="current-state" class="text-6xl font-black text-white">--</h2>
+                            <p class="text-slate-500 text-xs font-bold uppercase mt-2">Efficiency Performance</p>
                         </div>
                         <div class="text-right">
                             <p id="op8-val" class="text-4xl font-black text-sky-400">0.0%</p>
-                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">OP-8 Efficiency</p>
+                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">OP-8 Score</p>
                         </div>
                     </div>
                     <div class="h-64"><canvas id="efficiencyChart"></canvas></div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="glass-card p-6 border-l-4 border-purple-500">
-                        <p class="text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-widest">OP-10 Utilization</p>
-                        <p id="op10-val" class="text-3xl font-black text-white">0.0%</p>
-                    </div>
-                    <div class="glass-card p-6 border-l-4 border-emerald-500">
-                        <p class="text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-widest">OP-13 Compliance</p>
-                        <p id="op13-val" class="text-3xl font-black text-white">0.0%</p>
-                    </div>
                 </div>
             </div>
         </div>
@@ -68,34 +53,25 @@
         async function init() {
             const statusEl = document.getElementById('status');
             try {
-                // FORCE REFRESH: Ensures we don't get a cached version
-                const response = await fetch("./data.json?t=" + new Date().getTime());
-                if (!response.ok) throw new Error("File not found");
+                // Fetch with cache-busting
+                const response = await fetch("./data.json?t=" + Date.now());
+                if (!response.ok) throw new Error("File not found (404)");
                 
-                let rawJson = await response.json();
-
-                // THE FIX: Format Detection logic
-                // Checks if it's an Array or an Object with a results/data property
-                let dataArray = [];
-                if (Array.isArray(rawJson)) {
-                    dataArray = rawJson;
-                } else if (rawJson.results && Array.isArray(rawJson.results)) {
-                    dataArray = rawJson.results;
-                } else if (rawJson.data && Array.isArray(rawJson.data)) {
-                    dataArray = rawJson.data;
+                const raw = await response.json();
+                
+                // DATA DISCOVERY LOGIC: Find the array no matter where it's hidden
+                let dataArray = Array.isArray(raw) ? raw : (raw.results || raw.data || Object.values(raw).find(Array.isArray));
+                
+                if (!dataArray || !Array.isArray(dataArray)) {
+                    throw new Error("Invalid Data Format");
                 }
-
-                if (!dataArray || dataArray.length === 0) throw new Error("No data found in file");
 
                 const processed = dataArray.reduce((acc, curr) => {
                     const state = curr.state;
                     if (!state || state.length !== 2) return acc;
                     if (!acc[state]) acc[state] = { state, op8: 0, op10: 0, op13: 0 };
-                    
                     const score = parseFloat(curr.score) || 0;
                     if (curr.measure_id === 'OP_8') acc[state].op8 = score;
-                    if (curr.measure_id === 'OP_10') acc[state].op10 = score;
-                    if (curr.measure_id === 'OP_13') acc[state].op13 = score;
                     return acc;
                 }, {});
 
@@ -107,7 +83,7 @@
                 renderStateList();
                 updateDashboard(allData[0]?.state || 'CA');
             } catch (err) {
-                console.error("Dashboard Init Failed:", err);
+                console.error("Dashboard Error:", err);
                 statusEl.innerText = "Status: " + err.message;
                 statusEl.className = statusEl.className.replace('text-sky-500', 'text-rose-500');
             }
@@ -118,7 +94,7 @@
             list.innerHTML = "";
             allData.forEach(item => {
                 const btn = document.createElement('button');
-                btn.className = "w-full text-left px-3 py-2 text-[11px] font-mono text-slate-500 hover:text-sky-400 hover:bg-slate-800 rounded transition mb-1 border border-transparent";
+                btn.className = "w-full text-left px-3 py-2 text-xs font-mono text-slate-500 hover:text-sky-400 hover:bg-slate-800 rounded mb-1";
                 btn.innerText = item.state;
                 btn.onclick = () => updateDashboard(item.state);
                 list.appendChild(btn);
@@ -130,8 +106,6 @@
             if (!state) return;
             document.getElementById('current-state').innerText = state.state;
             document.getElementById('op8-val').innerText = state.op8.toFixed(1) + '%';
-            document.getElementById('op10-val').innerText = state.op10.toFixed(1) + '%';
-            document.getElementById('op13-val').innerText = state.op13.toFixed(1) + '%';
             renderChart(stateCode);
         }
 
@@ -149,15 +123,7 @@
                         borderRadius: 4
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { color: '#475569', font: { size: 9 } } },
-                        x: { grid: { display: false }, ticks: { color: '#475569', font: { size: 9 } } }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
         init();
