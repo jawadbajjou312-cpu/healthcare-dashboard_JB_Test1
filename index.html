@@ -164,6 +164,103 @@
         }
 
         init();
-    </script>
+   <script>
+        let myChart = null;
+        let allData = [];
+
+        async function init() {
+            try {
+                const response = await fetch("./data.json");
+                if (!response.ok) throw new Error("Local data.json not found");
+                
+                let json = await response.json();
+                
+                // SAFETY CHECK: If the data is wrapped in an object, grab the array inside
+                // This fixes the "json.reduce is not a function" error
+                const dataArray = Array.isArray(json) ? json : (json.results || json.data || []);
+                
+                if (dataArray.length === 0) throw new Error("Data format is empty or unrecognized");
+
+                const processed = dataArray.reduce((acc, curr) => {
+                    const state = curr.state;
+                    if (!state || state.length !== 2) return acc;
+                    if (!acc[state]) acc[state] = { state, op8: 0, op10: 0, op13: 0 };
+                    
+                    const score = parseFloat(curr.score) || 0;
+                    if (curr.measure_id === 'OP_8') acc[state].op8 = score;
+                    if (curr.measure_id === 'OP_10') acc[state].op10 = score;
+                    if (curr.measure_id === 'OP_13') acc[state].op13 = score;
+                    return acc;
+                }, {});
+
+                allData = Object.values(processed).sort((a,b) => a.state.localeCompare(b.state));
+                
+                const statusEl = document.getElementById('status');
+                statusEl.innerText = "● Data Verified";
+                statusEl.className = statusEl.className.replace('text-sky-500', 'text-emerald-500');
+                
+                renderStateList();
+                updateDashboard(allData[0].state); 
+            } catch (err) {
+                console.error(err);
+                const statusEl = document.getElementById('status');
+                statusEl.innerText = "Data Error: " + err.message;
+                statusEl.className = statusEl.className.replace('text-sky-500', 'text-rose-500');
+            }
+        }
+
+        function renderStateList() {
+            const list = document.getElementById('state-list');
+            list.innerHTML = ""; // Clear current list
+            allData.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left px-3 py-2 text-xs font-mono text-slate-500 hover:text-sky-400 hover:bg-slate-800/50 rounded-md transition mb-1 border border-transparent hover:border-slate-700";
+                btn.innerText = item.state;
+                btn.onclick = () => updateDashboard(item.state);
+                list.appendChild(btn);
+            });
+        }
+
+        function updateDashboard(stateCode) {
+            const state = allData.find(s => s.state === stateCode);
+            if (!state) return;
+
+            document.getElementById('current-state').innerText = state.state;
+            document.getElementById('op8-val').innerText = state.op8.toFixed(1) + '%';
+            document.getElementById('op10-val').innerText = state.op10.toFixed(1) + '%';
+            document.getElementById('op13-val').innerText = state.op13.toFixed(1) + '%';
+
+            renderChart(stateCode);
+        }
+
+        function renderChart(activeState) {
+            const ctx = document.getElementById('efficiencyChart').getContext('2d');
+            const chartData = allData.slice(0, 20); 
+            
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.map(d => d.state),
+                    datasets: [{
+                        data: chartData.map(d => d.op8),
+                        backgroundColor: chartData.map(d => d.state === activeState ? '#0ea5e9' : '#1e293b'),
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { color: '#475569' } },
+                        x: { grid: { display: false }, ticks: { color: '#475569' } }
+                    }
+                }
+            });
+        }
+
+        init();
 </body>
 </html>
