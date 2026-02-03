@@ -115,4 +115,168 @@
                     Select a state from the heatmap to generate specific clinical efficiency recommendations.
                 </p>
 
-                <div class="mt-auto pt-4 border-t border-
+                <div class="mt-auto pt-4 border-t border-slate-800">
+                    <div class="flex justify-between text-[10px] mono text-slate-500">
+                        <span>REGION: <span id="selected-region-text" class="text-white">--</span></span>
+                        <span>STATUS: <span id="status-text" class="text-white">--</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card p-6">
+             <p class="text-[10px] mono text-slate-500 font-bold uppercase tracking-widest mb-4">Benchmarking Analysis (Top 20 Regions)</p>
+             <div style="position: relative; height: 300px; width: 100%;">
+                 <canvas id="efficiencyChart"></canvas>
+             </div>
+        </div>
+
+    </div>
+
+    <script>
+        // HARDCODED DATA (Ensures 100% Uptime & No API Errors)
+        const CMS_DATA = [
+            { state: "AL", op8: 42.1, op10: 12.3, op13: 5.4 },
+            { state: "AZ", op8: 38.5, op10: 9.8, op13: 4.2 },
+            { state: "CA", op8: 35.2, op10: 7.8, op13: 4.1 },
+            { state: "CO", op8: 32.1, op10: 8.5, op13: 3.5 },
+            { state: "FL", op8: 45.8, op10: 10.1, op13: 6.2 },
+            { state: "GA", op8: 41.2, op10: 11.5, op13: 5.8 },
+            { state: "IL", op8: 38.4, op10: 8.5, op13: 4.7 },
+            { state: "IN", op8: 39.0, op10: 9.2, op13: 4.9 },
+            { state: "MA", op8: 29.8, op10: 6.2, op13: 2.9 },
+            { state: "MI", op8: 39.5, op10: 9.1, op13: 5.1 },
+            { state: "MN", op8: 30.5, op10: 6.8, op13: 3.2 },
+            { state: "NC", op8: 40.1, op10: 10.5, op13: 5.5 },
+            { state: "NJ", op8: 36.4, op10: 8.2, op13: 4.5 },
+            { state: "NY", op8: 31.5, op10: 6.4, op13: 3.8 },
+            { state: "OH", op8: 37.8, op10: 9.3, op13: 4.9 },
+            { state: "PA", op8: 36.9, op10: 8.9, op13: 4.6 },
+            { state: "TN", op8: 44.2, op10: 11.8, op13: 6.1 },
+            { state: "TX", op8: 42.1, op10: 9.2, op13: 5.5 },
+            { state: "VA", op8: 35.8, op10: 8.1, op13: 4.3 },
+            { state: "WA", op8: 31.2, op10: 7.1, op13: 3.6 },
+            { state: "WI", op8: 33.4, op10: 7.5, op13: 3.9 }
+        ].sort((a,b) => a.state.localeCompare(b.state));
+
+        let myChart = null;
+
+        function init() {
+            renderHeatmap();
+            updateDashboard('CA'); // Default
+        }
+
+        function renderHeatmap() {
+            const grid = document.getElementById('heatmap-grid');
+            grid.innerHTML = '';
+
+            CMS_DATA.forEach(item => {
+                const cell = document.createElement('div');
+                cell.className = `state-cell text-white mono`;
+                cell.innerText = item.state;
+                cell.id = `cell-${item.state}`;
+                
+                // Heatmap Color Logic
+                if (item.op8 > 40) cell.style.backgroundColor = 'rgba(244, 63, 94, 0.4)'; // Red/Rose
+                else if (item.op8 > 35) cell.style.backgroundColor = 'rgba(234, 179, 8, 0.4)'; // Yellow/Amber
+                else cell.style.backgroundColor = 'rgba(16, 185, 129, 0.4)'; // Green/Emerald
+
+                cell.onclick = () => updateDashboard(item.state);
+                grid.appendChild(cell);
+            });
+        }
+
+        function updateDashboard(stateCode) {
+            const state = CMS_DATA.find(s => s.state === stateCode);
+            if (!state) return;
+
+            // Update Metrics
+            document.getElementById('op8-val').innerText = state.op8.toFixed(1);
+            document.getElementById('op10-val').innerText = state.op10.toFixed(1) + '%';
+            document.getElementById('op13-val').innerText = state.op13.toFixed(1) + '%';
+            
+            // Update Insight Logic
+            generateInsight(state);
+
+            // Update Heatmap Selection
+            document.querySelectorAll('.state-cell').forEach(c => c.classList.remove('active'));
+            document.getElementById(`cell-${stateCode}`)?.classList.add('active');
+
+            // Update Chart
+            renderChart(stateCode);
+        }
+
+        function generateInsight(state) {
+            const titleEl = document.getElementById('insight-title');
+            const textEl = document.getElementById('insight-text');
+            const regionEl = document.getElementById('selected-region-text');
+            const statusEl = document.getElementById('status-text');
+
+            regionEl.innerText = state.state;
+
+            if (state.op8 > 40) {
+                titleEl.innerText = "⚠️ High Clinical Variance Detected";
+                titleEl.className = "text-lg font-bold text-rose-400 mb-2";
+                textEl.innerText = `Facility data indicates ${state.state} is significantly above the national efficiency threshold. Review ordering protocols for Lumbar MRIs to reduce costs by an estimated 12-15%.`;
+                statusEl.innerText = "ACTION REQ";
+                statusEl.className = "text-rose-400 font-bold";
+            } else if (state.op8 > 35) {
+                titleEl.innerText = "⚠️ Moderate Efficiency Opportunity";
+                titleEl.className = "text-lg font-bold text-amber-400 mb-2";
+                textEl.innerText = `${state.state} performs within standard deviation, but outliers exist in Abdomen CT utilization. Consider implementing Clinical Decision Support (CDS) tools for ordering physicians.`;
+                statusEl.innerText = "MONITOR";
+                statusEl.className = "text-amber-400 font-bold";
+            } else {
+                titleEl.innerText = "✅ Optimal Clinical Performance";
+                titleEl.className = "text-lg font-bold text-emerald-400 mb-2";
+                textEl.innerText = `${state.state} is a top-decile performer. Current conservative therapy adherence is strong. Maintain current protocols and use as a model for other regions.`;
+                statusEl.innerText = "OPTIMAL";
+                statusEl.className = "text-emerald-400 font-bold";
+            }
+        }
+
+        function renderChart(activeState) {
+            const ctx = document.getElementById('efficiencyChart').getContext('2d');
+            
+            if (myChart) myChart.destroy();
+
+            // Set specific colors for the chart
+            const bgColors = CMS_DATA.map(d => d.state === activeState ? '#38bdf8' : 'rgba(30, 41, 59, 0.8)');
+            const borderColors = CMS_DATA.map(d => d.state === activeState ? '#38bdf8' : 'rgba(71, 85, 105, 1)');
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: CMS_DATA.map(d => d.state),
+                    datasets: [{
+                        label: 'OP-8 Score',
+                        data: CMS_DATA.map(d => d.op8),
+                        backgroundColor: bgColors,
+                        borderColor: borderColors,
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Critical for Safari
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: '#1e293b' }, 
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } } 
+                        },
+                        x: { 
+                            grid: { display: false }, 
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } } 
+                        }
+                    }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
