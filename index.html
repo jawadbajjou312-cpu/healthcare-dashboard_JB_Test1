@@ -3,30 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Healthcare Efficiency Console</title>
+    <title>Healthcare Efficiency Console | Portfolio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background-color: #020617; color: #f1f5f9; font-family: sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;900&display=swap');
+        body { background-color: #020617; color: #f1f5f9; font-family: 'Inter', sans-serif; }
         .glass-card { background: rgba(15, 23, 42, 0.9); border: 1px solid #1e293b; border-radius: 12px; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
     </style>
 </head>
 <body>
     <div id="app" class="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
         <header class="flex justify-between items-center border-b border-slate-800 pb-6">
             <div>
-                <h1 class="text-xl font-bold tracking-tighter italic text-white uppercase">NeuralHealth <span class="text-sky-500">Analytics</span></h1>
+                <h1 class="text-xl font-black tracking-tighter italic text-white uppercase">NeuralHealth <span class="text-sky-500">Analytics</span></h1>
                 <p class="text-[9px] font-mono text-slate-500 uppercase tracking-widest mt-1">CMS Outpatient Imaging Efficiency Tracker</p>
             </div>
             <div id="status" class="text-[10px] font-mono text-sky-500 uppercase tracking-widest px-3 py-1 bg-slate-900 border border-slate-800 rounded">
-                Initialising Local Data...
+                Verifying Local Dataset...
             </div>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="glass-card p-4 h-[500px] flex flex-col">
+            <div class="glass-card p-4 h-[520px] flex flex-col">
                 <p class="text-[10px] text-slate-500 font-bold mb-4 uppercase tracking-widest">Select Region</p>
                 <div id="state-list" class="overflow-y-auto custom-scrollbar flex-grow pr-2">
                     </div>
@@ -37,11 +39,11 @@
                     <div class="flex justify-between items-end mb-8">
                         <div>
                             <h2 id="current-state" class="text-6xl font-black text-white">--</h2>
-                            <p class="text-slate-500 text-xs font-bold uppercase mt-2">Regional Performance Variance</p>
+                            <p class="text-slate-500 text-xs font-bold uppercase mt-2 tracking-tight">Regional Efficiency Performance</p>
                         </div>
                         <div class="text-right">
                             <p id="op8-val" class="text-4xl font-black text-sky-400">0.0%</p>
-                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">OP-8 Measure Score</p>
+                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">OP-8 Efficiency</p>
                         </div>
                     </div>
                     <div class="h-64">
@@ -53,12 +55,12 @@
                     <div class="glass-card p-6 border-l-4 border-purple-500">
                         <p class="text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-widest">OP-10: Abdomen CT</p>
                         <p id="op10-val" class="text-3xl font-black text-white">0.0%</p>
-                        <p class="text-[9px] text-slate-500 mt-2 uppercase">Use of Contrast Material</p>
+                        <p class="text-[9px] text-slate-500 mt-2 uppercase">Utilization of Contrast Material</p>
                     </div>
                     <div class="glass-card p-6 border-l-4 border-emerald-500">
                         <p class="text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-widest">OP-13: Cardiac Imaging</p>
                         <p id="op13-val" class="text-3xl font-black text-white">0.0%</p>
-                        <p class="text-[9px] text-slate-500 mt-2 uppercase">Pre-op Risk Assessment</p>
+                        <p class="text-[9px] text-slate-500 mt-2 uppercase">Pre-op Risk Compliance</p>
                     </div>
                 </div>
             </div>
@@ -71,115 +73,16 @@
 
         async function init() {
             try {
-                // Fetching from your local repo file
-                const response = await fetch("./data.json");
-                if (!response.ok) throw new Error("Local data.json not found");
-                
-                const json = await response.json();
-                
-                const processed = json.reduce((acc, curr) => {
-                    const state = curr.state;
-                    if (!state || state.length !== 2) return acc;
-                    if (!acc[state]) acc[state] = { state, op8: 0, op10: 0, op13: 0 };
-                    const score = parseFloat(curr.score) || 0;
-                    if (curr.measure_id === 'OP_8') acc[state].op8 = score;
-                    if (curr.measure_id === 'OP_10') acc[state].op10 = score;
-                    if (curr.measure_id === 'OP_13') acc[state].op13 = score;
-                    return acc;
-                }, {});
-
-                allData = Object.values(processed).sort((a,b) => a.state.localeCompare(b.state));
-                
-                const statusEl = document.getElementById('status');
-                statusEl.innerText = "● Data Verified";
-                statusEl.className = statusEl.className.replace('text-sky-500', 'text-emerald-500');
-                
-                renderStateList();
-                updateDashboard('CA'); // Default view
-            } catch (err) {
-                console.error(err);
-                const statusEl = document.getElementById('status');
-                statusEl.innerText = "Error: " + err.message;
-                statusEl.className = statusEl.className.replace('text-sky-500', 'text-rose-500');
-            }
-        }
-
-        function renderStateList() {
-            const list = document.getElementById('state-list');
-            allData.forEach(item => {
-                const btn = document.createElement('button');
-                btn.className = "w-full text-left px-3 py-2 text-xs font-mono text-slate-500 hover:text-sky-400 hover:bg-slate-800/50 rounded-md transition mb-1 border border-transparent hover:border-slate-700";
-                btn.innerText = item.state;
-                btn.onclick = () => updateDashboard(item.state);
-                list.appendChild(btn);
-            });
-        }
-
-        function updateDashboard(stateCode) {
-            const state = allData.find(s => s.state === stateCode);
-            if (!state) return;
-
-            document.getElementById('current-state').innerText = state.state;
-            document.getElementById('op8-val').innerText = state.op8.toFixed(1) + '%';
-            document.getElementById('op10-val').innerText = state.op10.toFixed(1) + '%';
-            document.getElementById('op13-val').innerText = state.op13.toFixed(1) + '%';
-
-            renderChart(stateCode);
-        }
-
-        function renderChart(activeState) {
-            const ctx = document.getElementById('efficiencyChart').getContext('2d');
-            const chartData = allData.slice(0, 20); // Show top 20 for better visibility
-            
-            if (myChart) myChart.destroy();
-
-            myChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartData.map(d => d.state),
-                    datasets: [{
-                        data: chartData.map(d => d.op8),
-                        backgroundColor: chartData.map(d => d.state === activeState ? '#0ea5e9' : '#1e293b'),
-                        borderRadius: 4,
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            grid: { color: '#1e293b', drawBorder: false }, 
-                            ticks: { color: '#475569', font: { size: 10 } } 
-                        },
-                        x: { 
-                            grid: { display: false }, 
-                            ticks: { color: '#475569', font: { size: 10 } } 
-                        }
-                    }
-                }
-            });
-        }
-
-        init();
-   <script>
-        let myChart = null;
-        let allData = [];
-
-        async function init() {
-            try {
+                // Fetch the data.json file you created in your repo
                 const response = await fetch("./data.json");
                 if (!response.ok) throw new Error("Local data.json not found");
                 
                 let json = await response.json();
                 
-                // SAFETY CHECK: If the data is wrapped in an object, grab the array inside
-                // This fixes the "json.reduce is not a function" error
+                // DATA WRAPPER FIX: Ensures 'reduce' works regardless of how CMS sends the file
                 const dataArray = Array.isArray(json) ? json : (json.results || json.data || []);
                 
-                if (dataArray.length === 0) throw new Error("Data format is empty or unrecognized");
+                if (dataArray.length === 0) throw new Error("Data file is empty");
 
                 const processed = dataArray.reduce((acc, curr) => {
                     const state = curr.state;
@@ -211,7 +114,7 @@
 
         function renderStateList() {
             const list = document.getElementById('state-list');
-            list.innerHTML = ""; // Clear current list
+            list.innerHTML = ""; 
             allData.forEach(item => {
                 const btn = document.createElement('button');
                 btn.className = "w-full text-left px-3 py-2 text-xs font-mono text-slate-500 hover:text-sky-400 hover:bg-slate-800/50 rounded-md transition mb-1 border border-transparent hover:border-slate-700";
@@ -235,7 +138,7 @@
 
         function renderChart(activeState) {
             const ctx = document.getElementById('efficiencyChart').getContext('2d');
-            const chartData = allData.slice(0, 20); 
+            const chartData = allData.slice(0, 15); 
             
             if (myChart) myChart.destroy();
 
@@ -262,5 +165,6 @@
         }
 
         init();
+    </script>
 </body>
 </html>
