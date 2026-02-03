@@ -3,104 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Healthcare AI Strategy Console</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Healthcare Efficiency Console</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     
     <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;900&display=swap');
-        body { background-color: #020617; color: #f1f5f9; font-family: 'Inter', sans-serif; }
-        .glass-card { background: rgba(15, 23, 42, 0.8); border: 1px solid #1e293b; border-radius: 16px; }
+        body { background-color: #020617; color: #f1f5f9; font-family: sans-serif; }
+        .glass-card { background: rgba(15, 23, 42, 0.9); border: 1px solid #1e293b; border-radius: 12px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
-        const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } = Recharts;
+        // Safety check to wait for libraries
+        const init = () => {
+            if (!window.React || !window.Recharts) {
+                console.log("Waiting for libraries...");
+                setTimeout(init, 100);
+                return;
+            }
 
-        const App = () => {
-            const [data, setData] = useState([]);
-            const [selectedState, setSelectedState] = useState(null);
-            const [loading, setLoading] = useState(true);
+            const { useState, useEffect } = window.React;
+            const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } = window.Recharts;
 
-            useEffect(() => {
-                fetch("https://data.cms.gov/resource/if5v-4x48.json")
-                    .then(res => res.json())
-                    .then(json => {
-                        const processed = json.reduce((acc, curr) => {
-                            const state = curr.state;
-                            if (!acc[state]) acc[state] = { state, op8: 0, op10: 0, op13: 0 };
-                            const score = parseFloat(curr.score) || 0;
-                            if (curr.measure_id === 'OP_8') acc[state].op8 = score;
-                            if (curr.measure_id === 'OP_10') acc[state].op10 = score;
-                            if (curr.measure_id === 'OP_13') acc[state].op13 = score;
-                            return acc;
-                        }, {});
-                        const finalArray = Object.values(processed).filter(s => s.state && s.state.length === 2);
-                        setData(finalArray);
-                        setSelectedState(finalArray.find(s => s.state === 'CA') || finalArray[0]);
-                        setLoading(false);
-                    })
-                    .catch(err => console.error("API Error:", err));
-            }, []);
+            const App = () => {
+                const [data, setData] = useState([]);
+                const [selectedState, setSelectedState] = useState(null);
 
-            if (loading) return <div className="h-screen flex items-center justify-center text-sky-500 font-mono italic">ESTABLISHING SECURE CMS LINK...</div>;
+                useEffect(() => {
+                    fetch("https://data.cms.gov/resource/if5v-4x48.json")
+                        .then(res => res.json())
+                        .then(json => {
+                            const processed = json.reduce((acc, curr) => {
+                                const state = curr.state;
+                                if (!acc[state]) acc[state] = { state, op8: 0, op10: 0, op13: 0 };
+                                const score = parseFloat(curr.score) || 0;
+                                if (curr.measure_id === 'OP_8') acc[state].op8 = score;
+                                if (curr.measure_id === 'OP_10') acc[state].op10 = score;
+                                if (curr.measure_id === 'OP_13') acc[state].op13 = score;
+                                return acc;
+                            }, {});
+                            const finalArray = Object.values(processed).filter(s => s.state && s.state.length === 2);
+                            setData(finalArray);
+                            setSelectedState(finalArray.find(s => s.state === 'CA') || finalArray[0]);
+                        })
+                        .catch(err => console.error("Fetch error:", err));
+                }, []);
 
-            return (
-                <div className="p-8 max-w-6xl mx-auto space-y-8">
-                    <header className="border-b border-slate-800 pb-6 flex justify-between items-end">
-                        <div>
-                            <h1 className="text-2xl font-black italic tracking-tighter">NEURALHEALTH <span className="text-sky-500">ANALYTICS</span></h1>
-                            <p className="text-slate-500 text-[10px] font-mono mt-1 uppercase tracking-widest">HOSPITAL EFFICIENCY CONSOLE v1.0</p>
+                if (!selectedState) return <div className="p-20 text-sky-500 mono">CONNECTING TO CMS...</div>;
+
+                return (
+                    <div className="p-10 max-w-5xl mx-auto space-y-6">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-6">
+                            <h1 className="text-xl font-bold tracking-tighter italic">NEURALHEALTH <span className="text-sky-500">ANALYTICS</span></h1>
+                            <span className="text-xs font-mono text-emerald-500 uppercase tracking-widest">● Live API Data</span>
                         </div>
-                        <div className="text-right">
-                            <p className="text-[10px] text-slate-500 font-bold mb-1">SELECTED PROVINCE</p>
-                            <p className="text-4xl font-black text-white">{selectedState.state}</p>
+
+                        <div className="glass-card p-8">
+                            <div className="flex justify-between items-end mb-8">
+                                <div>
+                                    <h2 className="text-5xl font-black">{selectedState.state}</h2>
+                                    <p className="text-slate-500 text-xs font-bold uppercase mt-2">Regional Efficiency Status</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-4xl font-black text-sky-400">{selectedState.op8.toFixed(1)}%</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold">OP-8 Efficiency</p>
+                                </div>
+                            </div>
+
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={data.slice(0, 12)}>
+                                        <XAxis dataKey="state" stroke="#475569" fontSize={10} />
+                                        <Tooltip contentStyle={{backgroundColor: '#020617', border: '1px solid #1e293b'}} />
+                                        <Bar dataKey="op8">
+                                            {data.slice(0, 12).map((entry, index) => (
+                                                <Cell key={index} fill={entry.state === selectedState.state ? '#38bdf8' : '#1e293b'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
-                    </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <KPIBox label="OP-8: Lumbar MRI" value={selectedState.op8} color="text-sky-400" />
-                        <KPIBox label="OP-10: Abdomen CT" value={selectedState.op10} color="text-purple-400" />
-                        <KPIBox label="OP-13: Cardiac" value={selectedState.op13} color="text-emerald-400" />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="glass-card p-4">
+                                <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">OP-10 Utilization</p>
+                                <p className="text-2xl font-bold text-purple-400">{selectedState.op10.toFixed(1)}%</p>
+                            </div>
+                            <div className="glass-card p-4">
+                                <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">OP-13 Compliance</p>
+                                <p className="text-2xl font-bold text-emerald-400">{selectedState.op13.toFixed(1)}%</p>
+                            </div>
+                        </div>
                     </div>
+                );
+            };
 
-                    <div className="glass-card p-8 h-96">
-                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data.slice(0, 15)}>
-                                <XAxis dataKey="state" stroke="#475569" fontSize={12} />
-                                <YAxis stroke="#475569" fontSize={12} />
-                                <Tooltip contentStyle={{backgroundColor: '#0f172a', border: '1px solid #1e293b'}} />
-                                <Bar dataKey="op8">
-                                    {data.slice(0, 15).map((entry, index) => (
-                                        <Cell key={index} fill={entry.state === selectedState.state ? '#38bdf8' : '#1e293b'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                         </ResponsiveContainer>
-                    </div>
-                </div>
-            );
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<App />);
         };
 
-        const KPIBox = ({ label, value, color }) => (
-            <div className="glass-card p-6">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">{label}</p>
-                <p className={`text-4xl font-black ${color}`}>{value.toFixed(1)}%</p>
-            </div>
-        );
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        init();
     </script>
 </body>
 </html>
