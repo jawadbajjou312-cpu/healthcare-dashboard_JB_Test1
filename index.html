@@ -3,42 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strategic OIE Console + PDF Export</title>
+    <title>Strategic OIE Console</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;900&display=swap');
-        body { background-color: #020617; color: #f1f5f9; font-family: 'Inter', sans-serif; }
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        .glass-card { background: rgba(15, 23, 42, 0.9); border: 1px solid #1e293b; border-radius: 16px; }
-        .stat-glow { text-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-    </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-[#020617] text-white">
+    <div id="root">
+        <div class="h-screen flex items-center justify-center font-mono text-sky-500">
+            LOADING SYSTEM COMPONENTS...
+        </div>
+    </div>
 
     <script type="text/javascript">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
         const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } = Recharts;
 
         const App = () => {
             const [data, setData] = useState([]);
             const [selectedState, setSelectedState] = useState(null);
             const [nationalAvg, setNationalAvg] = useState(0);
-            const [loading, setLoading] = useState(true);
-            const reportRef = useRef(null);
+            const [error, setError] = useState(null);
 
             useEffect(() => {
+                console.log("Attempting to fetch CMS data...");
                 fetch("https://data.cms.gov/resource/if5v-4x48.json")
-                    .then(res => res.json())
+                    .then(res => {
+                        if (!res.ok) throw new Error("Network response was not ok");
+                        return res.json();
+                    })
                     .then(json => {
+                        console.log("Data received:", json.length, "rows");
                         const processed = json.reduce((acc, curr) => {
                             const state = curr.state;
                             if (!acc[state]) acc[state] = { state, op8: 0, op10: 0, op13: 0 };
@@ -49,116 +47,56 @@
                             return acc;
                         }, {});
 
-                        const finalArray = Object.values(processed).filter(s => s.state !== 'National' && s.state.length === 2);
+                        const finalArray = Object.values(processed).filter(s => s.state && s.state.length === 2);
                         const natl = finalArray.reduce((sum, s) => sum + s.op8, 0) / finalArray.length;
                         
                         setData(finalArray);
                         setNationalAvg(natl);
                         setSelectedState(finalArray.find(s => s.state === 'CA') || finalArray[0]);
-                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error("Fetch Error:", err);
+                        setError(err.message);
                     });
             }, []);
 
-            const downloadPDF = async () => {
-                const element = reportRef.current;
-                const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#020617' });
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jspdf.jsPDF('l', 'mm', 'a4');
-                const imgProps = pdf.getImageProperties(imgData);
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`OIE_Report_${selectedState.state}_2026.pdf`);
-            };
-
-            if (loading) return <div className="h-screen flex items-center justify-center mono text-sky-500">SYNCING CMS DATA...</div>;
+            if (error) return <div className="p-10 text-rose-500 font-mono">Error Loading Data: {error}</div>;
+            if (!selectedState) return <div className="p-10 text-sky-500 font-mono text-center h-screen flex items-center justify-center">INITIALIZING API CONNECTION...</div>;
 
             return (
-                <div className="p-6 md:p-10 max-w-[1400px] mx-auto space-y-8">
-                    {/* ACTION HEADER */}
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-xl font-black text-white uppercase italic tracking-tighter">NeuralHealth <span className="text-sky-500">Analytics</span></h1>
-                        </div>
-                        <button 
-                            onClick={downloadPDF}
-                            className="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-full text-xs font-bold mono transition-all flex items-center gap-2"
-                        >
-                            <span>DOWNLOAD EXECUTIVE BRIEF</span>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="vertical-align: middle; 4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        </button>
-                    </div>
-
-                    <div ref={reportRef} className="space-y-8 p-4 bg-[#020617]">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            {/* State Selection */}
-                            <div className="lg:col-span-3">
-                                <div className="glass-card p-4 h-[500px] overflow-y-auto custom-scrollbar">
-                                    <p className="text-[10px] text-slate-500 font-bold mb-4 tracking-widest">SELECT REGION</p>
-                                    {data.sort((a,b) => b.op8 - a.op8).map(s => (
-                                        <div 
-                                            key={s.state} 
-                                            onClick={() => setSelectedState(s)}
-                                            className={`cursor-pointer p-2 rounded mb-1 text-sm flex justify-between ${selectedState.state === s.state ? 'bg-sky-500/20 text-sky-400' : 'text-slate-500'}`}
-                                        >
-                                            <span>{s.state}</span>
-                                            <span className="mono">{s.op8.toFixed(1)}%</span>
-                                        </div>
-                                    ))}
-                                </div>
+                <div class="p-10 max-w-[1200px] mx-auto">
+                    <h1 class="text-2xl font-black mb-8 italic">NEURALHEALTH <span class="text-sky-500">ANALYTICS</span></h1>
+                    <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
+                        <div class="flex justify-between items-end mb-10">
+                            <div>
+                                <h2 class="text-6xl font-black">{selectedState.state}</h2>
+                                <p class="text-slate-400 font-bold uppercase tracking-widest text-xs mt-2">Regional Efficiency Matrix</p>
                             </div>
-
-                            {/* Dashboard Core */}
-                            <div className="lg:col-span-9 space-y-6">
-                                <div className="glass-card p-8">
-                                    <div className="flex justify-between items-start mb-10">
-                                        <div>
-                                            <h2 className="text-6xl font-black text-white stat-glow leading-none">{selectedState.state}</h2>
-                                            <p className="text-slate-400 text-sm mt-4 max-w-md uppercase tracking-tight font-bold">
-                                                Outpatient Imaging Efficiency Metrics (CMS-IF5V)
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xs text-slate-500 mb-1">VARIANCE TO NATIONAL</div>
-                                            <div className={`text-3xl font-black ${(selectedState.op8 - nationalAvg) > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                {(selectedState.op8 - nationalAvg).toFixed(2)}%
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-8">
-                                        <StatBox label="OP-8: Lumbar MRI" val={selectedState.op8} color="text-sky-400" />
-                                        <StatBox label="OP-10: Abdomen CT" val={selectedState.op10} color="text-purple-400" />
-                                        <StatBox label="OP-13: Cardiac" val={selectedState.op13} color="text-emerald-400" />
-                                    </div>
-                                </div>
-
-                                <div className="glass-card p-8 h-[300px]">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={data.slice(0, 15)}>
-                                            <XAxis dataKey="state" hide />
-                                            <ReferenceLine y={nationalAvg} stroke="#ef4444" strokeDasharray="3 3" />
-                                            <Bar dataKey="op8">
-                                                {data.slice(0, 15).map((entry, index) => (
-                                                    <Cell key={index} fill={entry.state === selectedState.state ? '#38bdf8' : '#1e293b'} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
+                            <div class="text-right">
+                                <p class="text-xs text-slate-500 font-mono">VS NATIONAL AVG</p>
+                                <p class={`text-2xl font-black ${selectedState.op8 > nationalAvg ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                    {(selectedState.op8 - nationalAvg).toFixed(2)}%
+                                </p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-10">
+                            <div>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase mb-1">OP-8: Lumbar MRI</p>
+                                <p class="text-4xl font-black text-sky-400">{selectedState.op8.toFixed(1)}%</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase mb-1">OP-10: Abdomen CT</p>
+                                <p class="text-4xl font-black text-purple-400">{selectedState.op10.toFixed(1)}%</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase mb-1">OP-13: Cardiac</p>
+                                <p class="text-4xl font-black text-emerald-400">{selectedState.op13.toFixed(1)}%</p>
                             </div>
                         </div>
                     </div>
                 </div>
             );
         };
-
-        const StatBox = ({ label, val, color }) => (
-            <div className="border-l border-slate-800 pl-4">
-                <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase mb-2">{label}</p>
-                <p className={`text-4xl font-black mono ${color}`}>{val.toFixed(1)}%</p>
-            </div>
-        );
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
